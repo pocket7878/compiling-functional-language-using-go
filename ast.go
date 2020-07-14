@@ -219,7 +219,7 @@ func (a astUID) typecheck(mgr *typMgr, e *typEnv) typ {
 
 func (a astBinOp) typecheck(mgr *typMgr, e *typEnv) typ {
 	ltype := a.left.typecheck(mgr, e)
-	rtype := a.left.typecheck(mgr, e)
+	rtype := a.right.typecheck(mgr, e)
 	ftype := e.lookup(opName(a.op))
 	if ftype == nil {
 		panic("Failed to typecheck bin op")
@@ -270,20 +270,18 @@ func (d *definitionDefn) typecheckFirst(mgr *typMgr, e *typEnv) {
 		d.paramTypes = append(d.paramTypes, paramType)
 	}
 
+	log.Println("Full type: ", fullType)
+
 	e.bind(d.name, fullType)
 }
 
 func (d *definitionDefn) typecheckSecond(mgr *typMgr, e *typEnv) {
 	newEnv := e.scope()
 
-	if len(d.params) > len(d.paramTypes) {
-		for i, pt := range d.paramTypes {
-			newEnv.bind(d.params[i], pt)
-		}
-	} else {
-		for i, p := range d.params {
-			newEnv.bind(p, d.paramTypes[i])
-		}
+	for i, p := range d.params {
+		pt := d.paramTypes[len(d.paramTypes)-1-i]
+		log.Printf("Nested env bind: %s to %v\n", p, pt)
+		newEnv.bind(p, d.paramTypes[len(d.paramTypes)-1-i])
 	}
 
 	bodyType := d.body.typecheck(mgr, newEnv)
@@ -296,8 +294,8 @@ func (d *definitionData) typecheckFirst(mgr *typMgr, e *typEnv) {
 	for _, c := range d.constructors {
 		var fullType typ = returnType
 
-		for _, tn := range c.types {
-			ty := &typBase{tn}
+		for i := len(c.types) - 1; i >= 0; i-- {
+			ty := &typBase{c.types[i]}
 			fullType = &typArr{ty, fullType}
 		}
 

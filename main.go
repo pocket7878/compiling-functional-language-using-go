@@ -37,6 +37,11 @@ func typecheckProgram(prg []definition) {
 		fmt.Printf("Second typechecking: %v\n", d)
 		d.typecheckSecond(mgr, e)
 	}
+
+	fmt.Println("Types:")
+	for n, t := range e.names {
+		fmt.Printf("\t%s: %v\n", n, t.typString(mgr))
+	}
 }
 
 func main() {
@@ -44,5 +49,4 @@ func main() {
 	yyParse(l)
 	fmt.Printf("Parsed tree:\n%v\n", l.result)
 	typecheckProgram(l.result)
-	fmt.Printf("%v\n", l.result)
 }

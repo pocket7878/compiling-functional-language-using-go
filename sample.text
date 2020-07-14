@@ -1,3 +1,6 @@
+defn add x y = { x + y }
+defn double x = { add x x }
+defn main = { double 163 }
 data List = { Nil, Cons Int List }
 defn length l = {
     case l of {
@@ -5,6 +8,3 @@ defn length l = {
         Cons x xs -> { 1 + length xs }
     }
 }
-defn add x y = { x + y }
-defn double x = { add x x }
-defn main = { double 163 }

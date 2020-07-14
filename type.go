@@ -7,8 +7,13 @@ import (
 )
 
 type (
-	typ interface {
+	typStringer interface {
 		fmt.Stringer
+		typString(m *typMgr) string
+	}
+
+	typ interface {
+		typStringer
 	}
 
 	typVar struct {
@@ -46,6 +51,8 @@ func (m *typMgr) newTypName() string {
 		tmp = tmp/26 - 1
 	}
 
+	log.Println("New type Name: ", str)
+
 	return str
 }
 
@@ -63,17 +70,17 @@ func (m *typMgr) newArrTyp() *typArr {
 }
 
 func (m *typMgr) resolve(t typ, v **typVar) typ {
-	log.Printf("Resolve: %v typ: %v\n", t, reflect.TypeOf(t))
+	log.Printf("\t\tResolve: %v typ: %v\n", t, reflect.TypeOf(t))
 	for {
 		cast, ok := t.(*typVar)
-		log.Printf("t is typVar? = %v\n", ok)
+		log.Printf("\t\tt is typVar? = %v\n", ok)
 		if !ok {
 			break
 		}
 
 		it, ok := m.types[cast.name]
 		if !ok {
-			log.Printf("found base variable: %v\n", cast)
+			log.Printf("\t\tfound base variable: %v\n", cast)
 			*v = cast
 			break
 		}
@@ -84,14 +91,11 @@ func (m *typMgr) resolve(t typ, v **typVar) typ {
 }
 
 func (m *typMgr) bind(s string, t typ) {
-	log.Printf("bind %s to %v\n", s, t)
+	log.Printf("\tbind %s to %v (%v)\n", s, t, reflect.TypeOf(t))
 	other, ok := t.(*typVar)
 
-	if !ok {
-		return
-	}
-
-	if other != nil && other.name == s {
+	if ok && other.name == s {
+		log.Printf("\t\tSkip binding because already same name")
 		return
 	}
 
@@ -106,8 +110,8 @@ func (m *typMgr) unify(l typ, r typ) {
 	l = m.resolve(l, &lvar)
 	r = m.resolve(r, &rvar)
 
-	log.Printf("resolved lvar: %v\n", lvar)
-	log.Printf("resolved rvar: %v\n", rvar)
+	log.Printf("\tresolved lvar: %v\n", lvar)
+	log.Printf("\tresolved rvar: %v\n", rvar)
 
 	if lvar != nil {
 		m.bind(lvar.name, r)
@@ -148,5 +152,31 @@ func (b typBase) String() string {
 }
 
 func (a typArr) String() string {
-	return fmt.Sprintf("%v -> %v", a.left, a.right)
+	switch a.right.(type) {
+	case *typArr:
+		return fmt.Sprintf("%v -> (%v)", a.left, a.right)
+	default:
+		return fmt.Sprintf("%v -> %v", a.left, a.right)
+	}
+}
+
+func (v typVar) typString(m *typMgr) string {
+	it, ok := m.types[v.name]
+	if ok {
+		return it.typString(m)
+	}
+	return fmt.Sprintf("TypVar(%s)", v.name)
+}
+
+func (b typBase) typString(m *typMgr) string {
+	return b.name
+}
+
+func (a typArr) typString(m *typMgr) string {
+	switch a.right.(type) {
+	case *typArr:
+		return fmt.Sprintf("%v -> (%v)", a.left.typString(m), a.right.typString(m))
+	default:
+		return fmt.Sprintf("%v -> %v", a.left.typString(m), a.right.typString(m))
+	}
 }
