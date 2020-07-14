@@ -30,10 +30,20 @@ type (
 	}
 
 	typMgr struct {
-		lastId int
+		lastID int
 		types  map[string]typ
 	}
+
+	unificationError struct {
+		left  typ
+		right typ
+	}
 )
+
+// Error
+func (e unificationError) Error() string {
+	return fmt.Sprintf("Failed to unify type: %s with %s", e.left, e.right)
+}
 
 func newTypMgr() *typMgr {
 	return &typMgr{
@@ -43,8 +53,8 @@ func newTypMgr() *typMgr {
 }
 
 func (m *typMgr) newTypName() string {
-	tmp := m.lastId
-	m.lastId++
+	tmp := m.lastID
+	m.lastID++
 	str := ""
 	for tmp != -1 {
 		str += string(rune('a' + (tmp % 26)))
@@ -102,7 +112,7 @@ func (m *typMgr) bind(s string, t typ) {
 	m.types[s] = t
 }
 
-func (m *typMgr) unify(l typ, r typ) {
+func (m *typMgr) unify(l typ, r typ) error {
 	log.Printf("Unify %v with %v\n", l, r)
 	var lvar *typVar
 	var rvar *typVar
@@ -115,19 +125,21 @@ func (m *typMgr) unify(l typ, r typ) {
 
 	if lvar != nil {
 		m.bind(lvar.name, r)
-		return
+		return nil
 	} else if rvar != nil {
 		m.bind(rvar.name, l)
-		return
+		return nil
 	}
 
 	larr, larrOk := l.(*typArr)
 	rarr, rarrOk := r.(*typArr)
 
 	if larrOk && rarrOk {
-		m.unify(larr.left, rarr.left)
-		m.unify(larr.right, rarr.right)
-		return
+		err := m.unify(larr.left, rarr.left)
+		if err != nil {
+			return err
+		}
+		return m.unify(larr.right, rarr.right)
 	}
 
 	lid, lidOk := l.(*typBase)
@@ -135,11 +147,11 @@ func (m *typMgr) unify(l typ, r typ) {
 
 	if lidOk && ridOk {
 		if lid.name == rid.name {
-			return
+			return nil
 		}
 	}
 
-	panic(fmt.Sprintf("Failed to unify: %v with %v", l, r))
+	return unificationError{l, r}
 }
 
 // Print type

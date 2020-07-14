@@ -35,7 +35,10 @@ func typecheckProgram(prg []definition) {
 
 	for _, d := range prg {
 		fmt.Printf("Second typechecking: %v\n", d)
-		d.typecheckSecond(mgr, e)
+		err := d.typecheckSecond(mgr, e)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	fmt.Println("Types:")

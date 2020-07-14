@@ -18,12 +18,12 @@ const (
 type (
 	ast interface {
 		fmt.Stringer
-		typecheck(mgr *typMgr, env *typEnv) typ
+		typecheck(mgr *typMgr, env *typEnv) (typ, error)
 	}
 
 	pattern interface {
 		fmt.Stringer
-		match(t typ, mgr *typMgr, e *typEnv)
+		match(t typ, mgr *typMgr, e *typEnv) error
 	}
 
 	branch struct {
@@ -38,7 +38,7 @@ type (
 
 	definition interface {
 		typecheckFirst(mgr *typMgr, e *typEnv)
-		typecheckSecond(mgr *typMgr, e *typEnv)
+		typecheckSecond(mgr *typMgr, e *typEnv) error
 	}
 
 	astInt struct {
@@ -90,7 +90,15 @@ type (
 		name         string
 		constructors []constructor
 	}
+
+	unknownOpError struct {
+		op binOpType
+	}
 )
+
+func (e unknownOpError) Error() string {
+	return fmt.Sprintf("Unknown operator: %d", e.op)
+}
 
 func newDefinitionDefn(name string, params []string, body ast) *definitionDefn {
 	return &definitionDefn{
@@ -122,7 +130,7 @@ func (a astBinOp) String() string {
 	case binOpDivide:
 		return fmt.Sprintf("%v / %v", a.left, a.right)
 	default:
-		panic("Usupported operator")
+		panic(unknownOpError{a.op})
 	}
 }
 
@@ -159,105 +167,144 @@ func (a astCase) String() string {
 }
 
 //Pattern Match
-func (pv patternVar) match(t typ, mgr *typMgr, e *typEnv) {
+func (pv patternVar) match(t typ, mgr *typMgr, e *typEnv) error {
 	e.bind(pv.variable, t)
+
+	return nil
 }
 
-func (pc patternConstr) match(t typ, mgr *typMgr, e *typEnv) {
+func (pc patternConstr) match(t typ, mgr *typMgr, e *typEnv) error {
 	constrTyp := e.lookup(pc.constr)
 	if constrTyp == nil {
-		panic("Failed to lookp constructor Type")
+		return fmt.Errorf("Failed to lookp constructor type: %s", pc.constr)
 	}
 
 	for _, param := range pc.params {
 		arr, ok := constrTyp.(*typArr)
 		if !ok {
-			panic("Unexpected constructor type")
+			return fmt.Errorf("Unexpected constructor type: %v", constrTyp)
 		}
 
 		e.bind(param, arr.left)
 		constrTyp = arr.right
 	}
 
-	mgr.unify(t, constrTyp)
+	err := mgr.unify(t, constrTyp)
+	if err != nil {
+		return err
+	}
+
 	log.Printf("Constructor type: %v, %v\n", constrTyp, reflect.TypeOf(constrTyp))
 	_, ok := constrTyp.(*typBase)
 
 	if !ok {
-		panic("Failed to unify constructor type")
+		return fmt.Errorf("Failed to unify constructor type: %v", constrTyp)
 	}
+
+	return nil
 }
 
 // Type Checks
-func opName(op binOpType) string {
+func opName(op binOpType) (string, error) {
 	switch op {
 	case binOpPlus:
-		return "+"
+		return "+", nil
 	case binOpMinus:
-		return "-"
+		return "-", nil
 	case binOpTimes:
-		return "*"
+		return "*", nil
 	case binOpDivide:
-		return "/"
+		return "/", nil
 	default:
-		panic(fmt.Sprintf("Unsupported operator: %d", op))
-		return ""
+		return "", fmt.Errorf("Unsupported operator: %d", op)
 	}
 }
 
-func (a astInt) typecheck(mgr *typMgr, e *typEnv) typ {
-	return &typBase{"Int"}
+func (a astInt) typecheck(mgr *typMgr, e *typEnv) (typ, error) {
+	return &typBase{"Int"}, nil
 }
 
-func (a astLID) typecheck(mgr *typMgr, e *typEnv) typ {
-	return e.lookup(a.ID)
+func (a astLID) typecheck(mgr *typMgr, e *typEnv) (typ, error) {
+	return e.lookup(a.ID), nil
 }
 
-func (a astUID) typecheck(mgr *typMgr, e *typEnv) typ {
-	return e.lookup(a.ID)
+func (a astUID) typecheck(mgr *typMgr, e *typEnv) (typ, error) {
+	return e.lookup(a.ID), nil
 }
 
-func (a astBinOp) typecheck(mgr *typMgr, e *typEnv) typ {
-	ltype := a.left.typecheck(mgr, e)
-	rtype := a.right.typecheck(mgr, e)
-	ftype := e.lookup(opName(a.op))
+func (a astBinOp) typecheck(mgr *typMgr, e *typEnv) (typ, error) {
+	ltype, err := a.left.typecheck(mgr, e)
+	if err != nil {
+		return nil, err
+	}
+	rtype, err := a.right.typecheck(mgr, e)
+	if err != nil {
+		return nil, err
+	}
+	o, error := opName(a.op)
+	if error != nil {
+		return nil, error
+	}
+
+	ftype := e.lookup(o)
 	if ftype == nil {
-		panic("Failed to typecheck bin op")
+		return nil, fmt.Errorf("Failed to typecheck bin op")
 	}
 
 	returnType := mgr.newTyp()
 	arrowOne := &typArr{rtype, returnType}
 	arrowTwo := &typArr{ltype, arrowOne}
 
-	mgr.unify(arrowTwo, ftype)
+	err = mgr.unify(arrowTwo, ftype)
+	if err != nil {
+		return nil, err
+	}
 
-	return returnType
+	return returnType, nil
 }
 
-func (a astApp) typecheck(mgr *typMgr, e *typEnv) typ {
-	ltype := a.left.typecheck(mgr, e)
-	rtype := a.right.typecheck(mgr, e)
+func (a astApp) typecheck(mgr *typMgr, e *typEnv) (typ, error) {
+	ltype, err := a.left.typecheck(mgr, e)
+	if err != nil {
+		return nil, err
+	}
+	rtype, err := a.right.typecheck(mgr, e)
+	if err != nil {
+		return nil, err
+	}
 
 	returnType := mgr.newTyp()
 	arrow := &typArr{rtype, returnType}
 
-	mgr.unify(arrow, ltype)
+	err = mgr.unify(arrow, ltype)
+	if err != nil {
+		return nil, err
+	}
 
-	return returnType
+	return returnType, nil
 }
 
-func (a astCase) typecheck(mgr *typMgr, e *typEnv) typ {
-	caseType := a.of.typecheck(mgr, e)
+func (a astCase) typecheck(mgr *typMgr, e *typEnv) (typ, error) {
+	caseType, err := a.of.typecheck(mgr, e)
+	if err != nil {
+		return nil, err
+	}
 	branchType := mgr.newTyp()
 
 	for _, b := range a.branches {
 		newEnv := e.scope()
 		b.pat.match(caseType, mgr, newEnv)
-		currBranchType := b.expr.typecheck(mgr, newEnv)
-		mgr.unify(branchType, currBranchType)
+		currBranchType, err := b.expr.typecheck(mgr, newEnv)
+		if err != nil {
+			return nil, err
+		}
+		err = mgr.unify(branchType, currBranchType)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return branchType
+	return branchType, nil
 }
 
 func (d *definitionDefn) typecheckFirst(mgr *typMgr, e *typEnv) {
@@ -275,7 +322,7 @@ func (d *definitionDefn) typecheckFirst(mgr *typMgr, e *typEnv) {
 	e.bind(d.name, fullType)
 }
 
-func (d *definitionDefn) typecheckSecond(mgr *typMgr, e *typEnv) {
+func (d *definitionDefn) typecheckSecond(mgr *typMgr, e *typEnv) error {
 	newEnv := e.scope()
 
 	for i, p := range d.params {
@@ -284,8 +331,11 @@ func (d *definitionDefn) typecheckSecond(mgr *typMgr, e *typEnv) {
 		newEnv.bind(p, d.paramTypes[len(d.paramTypes)-1-i])
 	}
 
-	bodyType := d.body.typecheck(mgr, newEnv)
-	mgr.unify(d.returnType, bodyType)
+	bodyType, err := d.body.typecheck(mgr, newEnv)
+	if err != nil {
+		return err
+	}
+	return mgr.unify(d.returnType, bodyType)
 }
 
 func (d *definitionData) typecheckFirst(mgr *typMgr, e *typEnv) {
@@ -303,4 +353,6 @@ func (d *definitionData) typecheckFirst(mgr *typMgr, e *typEnv) {
 	}
 }
 
-func (d *definitionData) typecheckSecond(mgr *typMgr, e *typEnv) {}
+func (d *definitionData) typecheckSecond(mgr *typMgr, e *typEnv) error {
+	return nil
+}
