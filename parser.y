@@ -3,7 +3,6 @@
 package main
 
 import (
-    "fmt"
     "io"
     "text/scanner"
     "unicode"
@@ -87,7 +86,7 @@ definition
 
 defn
     : DEFN LID lowercaseParams EQUAL OCURLY aAdd CCURLY
-        { $$ = definitionDefn{$2, $3, $6} }
+        { $$ = newDefinitionDefn($2, $3, $6) }
     ;
 
 lowercaseParams 
@@ -118,7 +117,7 @@ app
     ;
 
 appBase
-    : INT { $$ = astInt{$1}; fmt.Println("astInt: %v", $1) }
+    : INT { $$ = astInt{$1}; }
     | LID { $$ = astLID{$1}; }
     | UID { $$ = astUID{$1}; }
     | OPAREN aAdd CPAREN { $$ = $2; }
@@ -148,7 +147,7 @@ pattern
 
 data
     : DATA UID EQUAL OCURLY constructors CCURLY
-        { $$ = definitionData{$2, $5}; }
+        { $$ = &definitionData{$2, $5}; }
     ;
 
 constructors
