@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"reflect"
+)
 
 type binOpType = int
 
@@ -166,7 +170,7 @@ func (pc patternConstr) match(t typ, mgr *typMgr, e *typEnv) {
 	}
 
 	for _, param := range pc.params {
-		arr, ok := constrTyp.(typArr)
+		arr, ok := constrTyp.(*typArr)
 		if !ok {
 			panic("Unexpected constructor type")
 		}
@@ -176,7 +180,8 @@ func (pc patternConstr) match(t typ, mgr *typMgr, e *typEnv) {
 	}
 
 	mgr.unify(t, constrTyp)
-	_, ok := constrTyp.(typBase)
+	log.Printf("Constructor type: %v, %v\n", constrTyp, reflect.TypeOf(constrTyp))
+	_, ok := constrTyp.(*typBase)
 
 	if !ok {
 		panic("Failed to unify constructor type")
