@@ -1,5 +1,6 @@
 defn add x y = { x + y }
 defn double x = { add x x }
+data Boolean = { True, False }
 defn main = { double 320 }
 data List = { Nil, Cons Int List }
 defn length l = {

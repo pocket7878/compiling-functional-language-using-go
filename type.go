@@ -143,7 +143,7 @@ func (m *typMgr) unify(l typ, r typ) error {
 	}
 
 	lid, lidOk := l.(*typBase)
-	rid, ridOk := l.(*typBase)
+	rid, ridOk := r.(*typBase)
 
 	if lidOk && ridOk {
 		if lid.name == rid.name {
