@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -81,10 +80,19 @@ func compileProgram(prog []definition) error {
 }
 
 func main() {
-	l := newLexer(bufio.NewReader(os.Stdin))
+	if len(os.Args) != 2 {
+		log.Fatalf("Usage %s <file>\n", os.Args[0])
+	}
+	file, err := os.Open(os.Args[1])
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer file.Close()
+
+	l := newLexer(file)
 	yyParse(l)
 	fmt.Printf("Parsed tree:\n%v\n", l.result)
-	err := typecheckProgram(l.result)
+	err = typecheckProgram(l.result)
 	if err != nil {
 		log.Fatalln("Typecheck Error: ", err)
 	}
