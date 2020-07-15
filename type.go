@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"reflect"
 )
 
 type (
@@ -22,6 +21,15 @@ type (
 
 	typBase struct {
 		name string
+	}
+
+	typDataConstr struct {
+		tag int
+	}
+
+	typData struct {
+		typBase
+		constructors map[string]typDataConstr
 	}
 
 	typArr struct {
@@ -61,8 +69,6 @@ func (m *typMgr) newTypName() string {
 		tmp = tmp/26 - 1
 	}
 
-	log.Println("New type Name: ", str)
-
 	return str
 }
 
@@ -79,18 +85,16 @@ func (m *typMgr) newArrTyp() *typArr {
 	}
 }
 
+// Type Check
 func (m *typMgr) resolve(t typ, v **typVar) typ {
-	log.Printf("\t\tResolve: %v typ: %v\n", t, reflect.TypeOf(t))
 	for {
 		cast, ok := t.(*typVar)
-		log.Printf("\t\tt is typVar? = %v\n", ok)
 		if !ok {
 			break
 		}
 
 		it, ok := m.types[cast.name]
 		if !ok {
-			log.Printf("\t\tfound base variable: %v\n", cast)
 			*v = cast
 			break
 		}
@@ -101,27 +105,23 @@ func (m *typMgr) resolve(t typ, v **typVar) typ {
 }
 
 func (m *typMgr) bind(s string, t typ) {
-	log.Printf("\tbind %s to %v (%v)\n", s, t, reflect.TypeOf(t))
 	other, ok := t.(*typVar)
 
 	if ok && other.name == s {
-		log.Printf("\t\tSkip binding because already same name")
 		return
 	}
+
+	log.Printf("Bind %s to %v\n", s, t)
 
 	m.types[s] = t
 }
 
 func (m *typMgr) unify(l typ, r typ) error {
-	log.Printf("Unify %v with %v\n", l, r)
 	var lvar *typVar
 	var rvar *typVar
 
 	l = m.resolve(l, &lvar)
 	r = m.resolve(r, &rvar)
-
-	log.Printf("\tresolved lvar: %v\n", lvar)
-	log.Printf("\tresolved rvar: %v\n", rvar)
 
 	if lvar != nil {
 		m.bind(lvar.name, r)
@@ -142,13 +142,25 @@ func (m *typMgr) unify(l typ, r typ) error {
 		return m.unify(larr.right, rarr.right)
 	}
 
-	lid, lidOk := l.(*typBase)
-	rid, ridOk := r.(*typBase)
+	lbase, lbaseOk := l.(*typBase)
+	ldata, ldataOk := l.(*typData)
+	rbase, rbaseOk := r.(*typBase)
+	rdata, rdataOk := r.(*typData)
 
-	if lidOk && ridOk {
-		if lid.name == rid.name {
-			return nil
-		}
+	if lbaseOk && rbaseOk && lbase.name == rbase.name {
+		return nil
+	}
+
+	if lbaseOk && rdataOk && lbase.name == rdata.name {
+		return nil
+	}
+
+	if ldataOk && rbaseOk && ldata.name == rbase.name {
+		return nil
+	}
+
+	if ldataOk && rdataOk && ldata.name == rdata.name {
+		return nil
 	}
 
 	return unificationError{l, r}
@@ -170,6 +182,10 @@ func (a typArr) String() string {
 	default:
 		return fmt.Sprintf("%v -> %v", a.left, a.right)
 	}
+}
+
+func (a typData) String() string {
+	return fmt.Sprintf("TypData(%v)", a.name)
 }
 
 func (v typVar) typString(m *typMgr) string {

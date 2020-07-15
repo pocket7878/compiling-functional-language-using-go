@@ -1,4 +1,4 @@
-fngo: main.go ast.go parser.go type.go
+fngo: *.go
 	go build
 
 parser.go: parser.y

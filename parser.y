@@ -100,33 +100,33 @@ uppercaseParams
     ;
 
 aAdd
-    : aAdd PLUS aMul { $$ = astBinOp{binOpPlus, $1, $3}; }
-    | aAdd MINUS aMul { $$ = astBinOp{binOpMinus, $1, $3}; }
+    : aAdd PLUS aMul { $$ = &astBinOp{binOpPlus, $1, $3, nil}; }
+    | aAdd MINUS aMul { $$ = &astBinOp{binOpMinus, $1, $3, nil}; }
     | aMul { $$ = $1; }
     ;
 
 aMul
-    : aAdd TIMES aMul { $$ = astBinOp{binOpTimes, $1, $3}; }
-    | aAdd DIVIDE aMul { $$ = astBinOp{binOpDivide, $1, $3}; }
+    : aAdd TIMES aMul { $$ = &astBinOp{binOpTimes, $1, $3, nil}; }
+    | aAdd DIVIDE aMul { $$ = &astBinOp{binOpDivide, $1, $3, nil}; }
     | app { $$ = $1; }
     ;
 
 app
-    : app appBase { $$ = astApp{$1, $2}; }
+    : app appBase { $$ = &astApp{$1, $2, nil}; }
     | appBase { $$ = $1; }
     ;
 
 appBase
-    : INT { $$ = astInt{$1}; }
-    | LID { $$ = astLID{$1}; }
-    | UID { $$ = astUID{$1}; }
+    : INT { $$ = &astInt{$1, nil}; }
+    | LID { $$ = &astLID{$1, nil}; }
+    | UID { $$ = &astUID{$1, nil}; }
     | OPAREN aAdd CPAREN { $$ = $2; }
     | case { $$ = $1; }
     ;
 
 case
     : CASE aAdd OF OCURLY branches CCURLY 
-        { $$ = astCase{$2, $5}; }
+        { $$ = &astCase{$2, $5, nil}; }
     ;
 
 branches
@@ -136,18 +136,18 @@ branches
 
 branch
     : pattern ARROW OCURLY aAdd CCURLY
-        { $$ = branch{$1, $4}; }
+        { $$ = branch{$1, $4, nil}; }
     ;
 
 pattern
-    : LID { $$ = &patternVar{$1}; }
+    : LID { $$ = &patternVar{$1, nil}; }
     | UID lowercaseParams
-        { $$ = patternConstr{$1, $2}; }
+        { $$ = patternConstr{$1, $2, nil}; }
     ;
 
 data
     : DATA UID EQUAL OCURLY constructors CCURLY
-        { $$ = &definitionData{$2, $5}; }
+        { $$ = &definitionData{$2, $5, nil}; }
     ;
 
 constructors
@@ -158,7 +158,7 @@ constructors
 
 constructor
     : UID uppercaseParams
-        { $$ = constructor{$1, $2}; }
+        { $$ = constructor{$1, $2, -1, nil}; }
     ;
 
 %%
