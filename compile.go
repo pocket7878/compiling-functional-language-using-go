@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 )
 
@@ -97,7 +96,6 @@ func (a astCase) compile(e compEnv, into *[]inst) error {
 
 	for _, branch := range a.branches {
 		branchInst := make([]inst, 0)
-		log.Printf("Branch type: %v\n", reflect.TypeOf(branch.pat))
 		if _, ok := branch.pat.(patternVar); ok {
 			branch.expr.compile(compEnvOffset{1, e}, &branchInst)
 

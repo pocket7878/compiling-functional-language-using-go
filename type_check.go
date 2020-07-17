@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 )
 
 // Type Checks
@@ -160,7 +159,6 @@ func typeCheckCommon(a ast, m *typMgr, e *typEnv) (typ, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("SetNodeType: %v to %v\n", a, typ)
 	a.setNodeType(typ)
 
 	return typ, nil

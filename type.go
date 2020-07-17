@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 )
 
 type (
@@ -110,8 +109,6 @@ func (m *typMgr) bind(s string, t typ) {
 	if ok && other.name == s {
 		return
 	}
-
-	log.Printf("Bind %s to %v\n", s, t)
 
 	m.types[s] = t
 }
