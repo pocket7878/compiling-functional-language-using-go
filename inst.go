@@ -7,6 +7,7 @@ import (
 type (
 	inst interface {
 		fmt.Stringer
+		execute(g *gVM)
 	}
 
 	instPushInt struct {

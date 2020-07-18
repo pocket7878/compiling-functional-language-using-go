@@ -134,7 +134,8 @@ func (d *definitionData) typecheckFirst(mgr *typMgr, e *typEnv) {
 	returnType := &thisType
 	nextTag := 0
 
-	for _, c := range d.constructors {
+	for i := 0; i < len(d.constructors); i++ {
+		c := &d.constructors[i]
 		c.tag = nextTag
 		thisType.constructors[c.name] = typDataConstr{nextTag + 1}
 		nextTag++

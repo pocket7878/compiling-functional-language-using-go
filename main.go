@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/pkg/errors"
 )
@@ -71,98 +72,59 @@ func compileProgram(prog []definition) error {
 	return nil
 }
 
-func f_add(s *stack) error {
-	stackTop, err := s.stackPeek(0)
-	if err != nil {
-		return err
+func runProgram(prog []definition) {
+	// Boot G-Machine VM
+	vm := newGVM()
+	//Store every function to heap
+	for _, d := range prog {
+		switch def := d.(type) {
+		case *definitionDefn:
+			vm.addGlobal(def.name, len(def.params), def.instructions)
+		case *definitionData:
+			for _, c := range def.constructors {
+				packInsts := make([]inst, 0)
+				packInsts = append(packInsts, instPack{c.tag, len(c.types)})
+				packInsts = append(packInsts, instUpdate{})
+				packInsts = append(packInsts, instUnwind{})
+				vm.addGlobal(c.name, len(c.types), packInsts)
+			}
+		}
 	}
-	aLeft, err := eval(stackTop)
-	if err != nil {
-		return err
-	}
-	leftNum, ok := aLeft.(*nodeNum)
+
+	vm.pushInst(&instEval{})
+	vm.pushInst(&instPushGlobal{"main"})
+
+	vm.run()
+
+	resultAddr := vm.stack.pop()
+	resultNode, ok := vm.heap[resultAddr]
 	if !ok {
-		return fmt.Errorf("Left Node is not a number")
+		log.Fatal("Failed to retrieve resutl")
 	}
 
-	stackSecond, err := s.stackPeek(1)
-	if err != nil {
-		return err
-	}
-	aRight, err := eval(stackSecond)
-	if err != nil {
-		return err
-	}
-	rightNum, ok := aRight.(*nodeNum)
-	if !ok {
-		return fmt.Errorf("Right Node is not a number")
-	}
-
-	s.stackPush(newNodeNum(leftNum.value + rightNum.value))
-
-	return nil
-}
-
-func f_main(s *stack) error {
-	s.stackPush(newNodeNum(320))
-	s.stackPush(newNodeNum(6))
-	s.stackPush(newNodeGlobal(f_add, 2))
-
-	left, err := s.stackPop()
-	if err != nil {
-		return err
-	}
-	right, err := s.stackPop()
-	if err != nil {
-		return err
-	}
-	s.stackPush(newNodeApp(left, right))
-
-	left, err = s.stackPop()
-	if err != nil {
-		return err
-	}
-	right, err = s.stackPop()
-	if err != nil {
-		return err
-	}
-	s.stackPush(newNodeApp(left, right))
-
-	return nil
+	log.Println("The Result is : ", resultNode)
 }
 
 func main() {
-	firstNode := newNodeGlobal(f_main, 0)
-	result, err := eval(firstNode)
+	if len(os.Args) != 2 {
+		log.Fatalf("Usage %s <file>\n", os.Args[0])
+	}
+	file, err := os.Open(os.Args[1])
 	if err != nil {
 		log.Fatalln(err)
 	}
+	defer file.Close()
 
-	resultNum, ok := result.(*nodeNum)
-	if !ok {
-		log.Fatalln("Result is not a number: ", result)
+	l := newLexer(file)
+	yyParse(l)
+	err = typecheckProgram(l.result)
+	if err != nil {
+		log.Fatalln("Typecheck Error: ", err)
 	}
-	fmt.Println(resultNum.value)
-	/*
-		if len(os.Args) != 2 {
-			log.Fatalf("Usage %s <file>\n", os.Args[0])
-		}
-		file, err := os.Open(os.Args[1])
-		if err != nil {
-			log.Fatalln(err)
-		}
-		defer file.Close()
+	err = compileProgram(l.result)
+	if err != nil {
+		log.Fatalln("Compile Error: ", err)
+	}
 
-		l := newLexer(file)
-		yyParse(l)
-		err = typecheckProgram(l.result)
-		if err != nil {
-			log.Fatalln("Typecheck Error: ", err)
-		}
-		err = compileProgram(l.result)
-		if err != nil {
-			log.Fatalln("Compile Error: ", err)
-		}
-	*/
-
+	runProgram(l.result)
 }

@@ -36,19 +36,14 @@ func (a astBinOp) compile(e compEnv, into *[]inst) error {
 	if err != nil {
 		return err
 	}
+	*into = append(*into, instEval{})
+
 	err = a.left.compile(compEnvOffset{1, e}, into)
 	if err != nil {
 		return err
 	}
-
-	opA, err := opAction(a.op)
-	if err != nil {
-		return err
-	}
-
-	*into = append(*into, instPushGlobal{opA})
-	*into = append(*into, instMkApp{})
-	*into = append(*into, instMkApp{})
+	*into = append(*into, instEval{})
+	*into = append(*into, instBinOp{a.op})
 
 	return nil
 }
@@ -155,6 +150,7 @@ func (a *definitionDefn) compile() error {
 	}
 	a.instructions = append(a.instructions, instUpdate{len(a.params)})
 	a.instructions = append(a.instructions, instPop{len(a.params)})
+	a.instructions = append(a.instructions, instUnwind{})
 
 	return nil
 }

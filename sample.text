@@ -1,7 +1,17 @@
 data List = { Nil, Cons Int List }
-defn length l = {
+
+defn sumZip l m = {
     case l of {
         Nil -> { 0 }
-        Cons x xs -> { 1 + length xs }
+        Cons x xs -> {
+            case m of {
+                Nil -> { 0 }
+                Cons y ys -> { x + y + sumZip xs ys }
+            }
+        }
     }
 }
+
+defn ones = { Cons 1 ones }
+
+defn main = { sumZip ones (Cons 1 (Cons 2 (Cons 3 Nil))) }
